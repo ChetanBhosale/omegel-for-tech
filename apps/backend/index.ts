@@ -8,6 +8,12 @@ const WS_PORT = Number(Secrets.WS_PORT) || 4001;
 
 console.log({Secrets})
 
+app.get('/health', (req,res) => {
+    res.status(200).json({
+        message : 'working'
+    })
+})
+
 app.listen(HTTP_PORT, () => {
   console.log(`HTTP server running on http://localhost:${HTTP_PORT}`);
 });
