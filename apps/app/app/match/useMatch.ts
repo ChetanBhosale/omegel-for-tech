@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import ClientSecrets from "@repo/secrets/client";
 
 export type MatchStatus = "connecting" | "idle" | "waiting" | "matched";
 
@@ -16,8 +17,7 @@ interface UseMatchResult {
 
 // Browser WebSocket is API-compatible with the backend `ws` server.
 function getWsUrl(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "http://localhost:4001";
+  const raw = ClientSecrets.PUBLIC_WS_URL ?? "http://localhost:4001";
   // Backend is plain ws, convert http(s) -> ws(s).
   return raw.replace(/^http/, "ws");
 }
