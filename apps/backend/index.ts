@@ -3,20 +3,21 @@ import { MemberManager } from './manager';
 import Secrets from '@repo/secrets/backend';
 
 const app = express();
-const HTTP_PORT = Secrets.HTTP_PORT;
-const WS_PORT = Number(Secrets.WS_PORT) || 4001;
 
-console.log({Secrets})
+// Render (and most hosts) inject a single PORT to bind to. Fall back to the
+// local HTTP_PORT for development.
+const PORT = Number(process.env.PORT) || Number(Secrets.HTTP_PORT) || 4000;
 
-app.get('/health', (req,res) => {
-    res.status(200).json({
-        message : 'working'
-    })
-})
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    message: 'working',
+  });
+});
 
-app.listen(HTTP_PORT, () => {
-  console.log(`HTTP server running on http://localhost:${HTTP_PORT}`);
+// HTTP and WebSocket share the same server/port.
+const server = app.listen(PORT, () => {
+  console.log(`HTTP + WS server running on port ${PORT}`);
 });
 
 const manager = MemberManager.getInstance();
-manager.init(WS_PORT);
+manager.init(server);

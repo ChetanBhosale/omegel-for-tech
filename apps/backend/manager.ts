@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
+import type { Server } from 'http';
 
 type MemberStatus = 'idle' | 'waiting' | 'matched';
 
@@ -30,13 +31,25 @@ export class MemberManager {
     return MemberManager.instance;
   }
 
-  init(port: number = 4001) {
+  /**
+   * Attach the WebSocket server to an existing HTTP server so both share the
+   * same port. This is required by hosts like Render that expose a single
+   * public port. Pass a port number instead to run a standalone WS server.
+   */
+  init(target: Server | number = 4001) {
     if (this.wss) {
       console.log('WebSocket server already running');
       return;
     }
 
-    this.wss = new WebSocketServer({ port });
+    if (typeof target === 'number') {
+      this.wss = new WebSocketServer({ port: target });
+      console.log(`WebSocket server running on ws://localhost:${target}`);
+    } else {
+      // Share the HTTP server's port (handles the HTTP -> WS upgrade).
+      this.wss = new WebSocketServer({ server: target });
+      console.log('WebSocket server attached to HTTP server');
+    }
 
     this.wss.on('connection', (socket: WebSocket) => {
       const id = randomUUID();
@@ -67,8 +80,6 @@ export class MemberManager {
         this.handleDisconnect(id);
       });
     });
-
-    console.log(`WebSocket server running on ws://localhost:${port}`);
   }
 
   private handleMessage(id: string, msg: any) {
