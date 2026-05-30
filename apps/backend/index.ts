@@ -1,6 +1,6 @@
 import express from 'express';
 import { MemberManager } from './manager';
-import Secrets from '@repo/secrets';
+import Secrets from '@repo/secrets/backend';
 
 const app = express();
 const HTTP_PORT = Secrets.HTTP_PORT;

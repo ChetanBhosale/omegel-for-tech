@@ -1,6 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import ClientSecrets from "@repo/secrets/client";
+import FrontendSecrets from "@repo/secrets/frontend";
 
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -25,7 +25,7 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
     >
       <body>
-        <ClerkProvider publishableKey={ClientSecrets.CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider publishableKey={FrontendSecrets.CLERK_PUBLISHABLE_KEY}>
           <ThemeProvider>{children}</ThemeProvider>
         </ClerkProvider>
       </body>
