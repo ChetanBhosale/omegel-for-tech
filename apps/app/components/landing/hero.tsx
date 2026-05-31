@@ -1,11 +1,8 @@
-"use client";
-
-import { GlassButton } from "@/components/ui/glass-button";
-import { GithubIcon } from "@/components/icons";
+import { StartButton } from "@/components/landing/start-button";
 import { DISPLAY_FONT } from "@/lib/fonts";
 
 /** Landing page hero: headline, subtext, and the primary CTA. */
-export function Hero({ onStart }: { onStart: () => void }) {
+export function Hero() {
   return (
     <section className="relative z-10 flex flex-col items-center px-6 py-[90px] pt-32 pb-40 text-center">
       <h1
@@ -20,14 +17,11 @@ export function Hero({ onStart }: { onStart: () => void }) {
         No more creepy uncles ruining every random video call.
       </p>
 
-      <GlassButton
+      <StartButton
         size="lg"
-        onClick={onStart}
-        className="animate-fade-rise-delay-2 mt-12 h-15 px-14 text-lg"
-      >
-        <GithubIcon className="size-5" />
-        Start Matching
-      </GlassButton>
+        iconSize="size-5"
+        className="animate-fade-rise-delay-2 mt-12 px-14 text-lg"
+      />
     </section>
   );
 }
