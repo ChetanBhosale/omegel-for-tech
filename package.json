@@ -7,7 +7,7 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "start:backend" : "cd packages/db && bun install && bunx prisma generate && cd ../../apps/backend && bun install && bun run start"
+    "start:backend" : "bun install && cd packages/db && bun install && bunx prisma generate && cd ../../apps/backend && bun install && bun run start"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
