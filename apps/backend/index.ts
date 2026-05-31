@@ -27,10 +27,9 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 const ALLOWED_ORIGINS = [
   Secrets.FRONTEND_URL,
   'http://localhost:3000',
-  'https://omegel-for-tech-app.vercel.app',
-  'https://omegelfortech.com',
+  'https://omegle-for-tech-app.vercel.app',
   'https://omeglefortech.com',
-  'https://www.omegelfortech.com',
+  'https://www.omeglefortech.com',
 ].filter(Boolean) as string[];
 
 // CORS must allow credentials so the auth cookie is sent/received cross-origin.

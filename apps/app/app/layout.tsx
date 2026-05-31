@@ -18,7 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "OmegelForTech — Meet developers, one conversation at a time",
+  title: "OmegleForTech — Meet developers, one conversation at a time",
   description:
     "Get paired with a random developer for a live 1-on-1 video chat. Trade ideas, pair on bugs, and meet builders from anywhere.",
 };

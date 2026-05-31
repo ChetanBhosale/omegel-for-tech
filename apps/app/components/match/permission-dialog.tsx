@@ -39,7 +39,7 @@ export function PermissionDialog() {
             Turn on your camera & microphone
           </DialogTitle>
           <DialogDescription className="text-center">
-            OmegelForTech is video-first. Please allow camera and microphone
+            OmegleForTech is video-first. Please allow camera and microphone
             access so your match can see and hear you — nobody likes getting
             creeped out by a blank screen.
           </DialogDescription>

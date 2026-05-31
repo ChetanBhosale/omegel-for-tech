@@ -8,7 +8,7 @@ interface LogoProps {
   href?: string;
 }
 
-/** The "OmegelForTech®" wordmark in the display font. */
+/** The "OmegleForTech®" wordmark in the display font. */
 export function Logo({ className, href = "/" }: LogoProps) {
   return (
     <Link
@@ -16,7 +16,7 @@ export function Logo({ className, href = "/" }: LogoProps) {
       className={cn("tracking-tight text-foreground", className)}
       style={DISPLAY_FONT}
     >
-      OmegelForTech<sup className="text-[0.5em]">®</sup>
+      OmegleForTech<sup className="text-[0.5em]">®</sup>
     </Link>
   );
 }
