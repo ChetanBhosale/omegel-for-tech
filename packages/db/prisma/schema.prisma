@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Supported OAuth providers. Add GOOGLE (and others) here as we expand.
+enum AuthProvider {
+  GITHUB
+  GOOGLE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  name      String?
+  username  String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A user can link multiple provider accounts (github now, google later).
+  accounts Account[]
+
+  @@map("users")
+}
+
+// One row per linked OAuth identity. This is what makes auth multi-provider
+// and scalable: the same User can have a GitHub account and a Google account.
+model Account {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          AuthProvider
+  providerAccountId String // the user's unique id at the provider (e.g. GitHub user id)
+  accessToken       String?
+  refreshToken      String?
+  scope             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // A provider account can only be linked once.
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}

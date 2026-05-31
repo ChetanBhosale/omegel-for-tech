@@ -1,17 +1,27 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import FrontendSecrets from "@repo/secrets/frontend";
+import type { Metadata } from "next";
+import { Instrument_Serif, Inter } from "next/font/google";
 
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
+import { QueryProvider } from "@/context/query-provider";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
-
-const fontMono = Geist_Mono({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-mono",
+  weight: "400",
+  variable: "--font-display",
 });
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-body",
+});
+
+export const metadata: Metadata = {
+  title: "OmegelForTech — Meet developers, one conversation at a time",
+  description:
+    "Get paired with a random developer for a live 1-on-1 video chat. Trade ideas, pair on bugs, and meet builders from anywhere.",
+};
 
 export default function RootLayout({
   children,
@@ -19,15 +29,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
-    >
-      <body>
-        <ClerkProvider publishableKey={FrontendSecrets.CLERK_PUBLISHABLE_KEY}>
-          <ThemeProvider>{children}</ThemeProvider>
-        </ClerkProvider>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body
+        className={cn(
+          "antialiased",
+          inter.variable,
+          instrumentSerif.variable,
+          "font-sans"
+        )}
+      >
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

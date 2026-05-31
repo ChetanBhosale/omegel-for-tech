@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import type { Server } from 'http';
+import { redis, KEYS } from './src/redis';
 
 type MemberStatus = 'idle' | 'waiting' | 'matched';
 
@@ -9,18 +10,35 @@ interface Member {
   socket: WebSocket;
   partnerId: string | null;
   status: MemberStatus;
+  /** Liveness flag toggled by the native ws ping/pong heartbeat. */
+  isAlive: boolean;
 }
 
+// Presence: a member is "online" if seen within this window. Auto-expires
+// ghosts (e.g. an instance that crashed without cleaning up).
+const ONLINE_WINDOW_MS = 60_000;
+// How often the server pings clients + refreshes presence.
+const HEARTBEAT_INTERVAL_MS = 30_000;
+// Cap inbound frame size to prevent abuse (signaling payloads are small).
+const MAX_PAYLOAD_BYTES = 64 * 1024;
+
 /**
- * Singleton manager that owns the WebSocket server, the matching queue,
- * and relays WebRTC signaling messages between paired peers.
+ * Owns the WebSocket server and matchmaking.
+ *
+ * Shared state (waiting queue + online presence) lives in Redis so it survives
+ * restarts and is consistent. Live sockets are necessarily per-instance (a TCP
+ * connection can't be serialized), so signal relay is in-process; cross-
+ * instance relay would require pub/sub (a future step).
  */
 export class MemberManager {
   private static instance: MemberManager;
 
   private wss: WebSocketServer | null = null;
   private members: Map<string, Member> = new Map();
-  private queue: string[] = [];
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Serializes matchmaking so concurrent triggers don't double-match. */
+  private matching = false;
 
   private constructor() {}
 
@@ -31,131 +49,197 @@ export class MemberManager {
     return MemberManager.instance;
   }
 
-  /**
-   * Attach the WebSocket server to an existing HTTP server so both share the
-   * same port. This is required by hosts like Render that expose a single
-   * public port. Pass a port number instead to run a standalone WS server.
-   */
-  init(target: Server | number = 4001) {
+  init(target: Server | number = 4000) {
     if (this.wss) {
       console.log('WebSocket server already running');
       return;
     }
 
+    const opts = { maxPayload: MAX_PAYLOAD_BYTES };
     if (typeof target === 'number') {
-      this.wss = new WebSocketServer({ port: target });
+      this.wss = new WebSocketServer({ port: target, ...opts });
       console.log(`WebSocket server running on ws://localhost:${target}`);
     } else {
-      // Share the HTTP server's port (handles the HTTP -> WS upgrade).
-      this.wss = new WebSocketServer({ server: target });
+      this.wss = new WebSocketServer({ server: target, ...opts });
       console.log('WebSocket server attached to HTTP server');
     }
 
     this.wss.on('connection', (socket: WebSocket) => {
-      const id = randomUUID();
-      const member: Member = { id, socket, partnerId: null, status: 'idle' };
-      this.members.set(id, member);
-
-      console.log(`[connect] ${id} — online: ${this.members.size}`);
-
-      this.send(socket, { type: 'connected', id });
-      this.broadcastOnlineCount();
-
-      socket.on('message', (raw) => {
-        let msg: any;
-        try {
-          msg = JSON.parse(raw.toString());
-        } catch {
-          return;
-        }
-        this.handleMessage(id, msg);
-      });
-
-      socket.on('close', () => {
-        this.handleDisconnect(id);
-      });
-
-      socket.on('error', (err) => {
-        console.error(`[error] ${id}:`, err.message);
-        this.handleDisconnect(id);
-      });
+      void this.handleConnection(socket);
     });
+
+    this.startHeartbeat();
   }
 
-  private handleMessage(id: string, msg: any) {
-    const member = this.members.get(id);
-    if (!member) return;
+  /** Gracefully stop the server (used on shutdown). */
+  async shutdown() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
 
-    switch (msg.type) {
-      case 'start':
-        this.enqueue(id);
-        break;
+    // Best-effort cleanup of this instance's members from shared state.
+    const ids = [...this.members.keys()];
+    await Promise.allSettled(
+      ids.map((id) => this.cleanupSharedState(id))
+    ).catch(() => {});
 
-      case 'stop':
-        this.stop(id);
-        break;
+    this.members.forEach(({ socket }) => socket.close());
+    this.members.clear();
+    this.wss?.close();
+    this.wss = null;
+  }
 
-      case 'next':
-        this.next(id);
-        break;
+  private async handleConnection(socket: WebSocket) {
+    const id = randomUUID();
+    const member: Member = {
+      id,
+      socket,
+      partnerId: null,
+      status: 'idle',
+      isAlive: true,
+    };
+    this.members.set(id, member);
 
-      case 'signal':
-        // Relay WebRTC signaling (offer / answer / ICE candidate) to the partner.
-        this.relaySignal(id, msg.signal);
-        break;
+    socket.on('pong', () => {
+      const m = this.members.get(id);
+      if (m) m.isAlive = true;
+    });
 
-      default:
-        break;
+    socket.on('message', (raw) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(raw.toString());
+      } catch {
+        return;
+      }
+      void this.handleMessage(id, msg);
+    });
+
+    socket.on('close', () => {
+      void this.handleDisconnect(id);
+    });
+
+    socket.on('error', (err) => {
+      console.error(`[ws-error] ${id}:`, err.message);
+      void this.handleDisconnect(id);
+    });
+
+    try {
+      await this.touchPresence(id);
+      this.send(socket, { type: 'connected', id });
+      await this.broadcastOnlineCount();
+      console.log(`[connect] ${id}`);
+    } catch (err) {
+      console.error('[connect] presence error:', err);
     }
   }
 
-  /** Add a member to the waiting queue and try to make a match. */
-  private enqueue(id: string) {
+  private async handleMessage(id: string, msg: any) {
     const member = this.members.get(id);
     if (!member) return;
 
-    // Break any existing pairing first.
-    if (member.partnerId) this.breakPair(id, true);
+    try {
+      switch (msg?.type) {
+        case 'ping':
+          this.send(member.socket, { type: 'pong' });
+          break;
+        case 'start':
+          await this.enqueue(id);
+          break;
+        case 'stop':
+          await this.stop(id);
+          break;
+        case 'next':
+          await this.next(id);
+          break;
+        case 'signal':
+          this.relaySignal(id, msg.signal);
+          break;
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error(`[message] error handling "${msg?.type}" for ${id}:`, err);
+    }
+  }
 
-    if (member.status === 'waiting') return; // already queued
+  /** Add a member to the shared waiting queue and try to make a match. */
+  private async enqueue(id: string) {
+    const member = this.members.get(id);
+    if (!member) return;
+
+    if (member.partnerId) await this.breakPair(id, true);
+    if (member.status === 'waiting') return;
 
     member.status = 'waiting';
-    if (!this.queue.includes(id)) this.queue.push(id);
+    // Sorted set keyed by enqueue time → FIFO ordering, set semantics (no dupes).
+    await redis.zadd(KEYS.queue, { score: Date.now(), member: id });
 
     this.send(member.socket, { type: 'waiting' });
-    this.tryMatch();
+    await this.tryMatch();
   }
 
-  /** Pop two valid waiting members and pair them. */
-  private tryMatch() {
-    while (this.queue.length >= 2) {
-      const id1 = this.queue.shift()!;
-      const user1 = this.members.get(id1);
-      if (!user1 || user1.status !== 'waiting') continue;
+  /**
+   * Pop waiting members from the shared queue and pair valid local ones.
+   * Serialized via `this.matching` so concurrent calls don't race.
+   */
+  private async tryMatch() {
+    if (this.matching) return;
+    this.matching = true;
+    try {
+      const picked: string[] = [];
 
-      const id2 = this.queue.shift()!;
-      const user2 = this.members.get(id2);
-      if (!user2 || user2.status !== 'waiting') {
-        // user2 invalid — put user1 back at the front and stop.
-        this.queue.unshift(id1);
-        continue;
+      while (true) {
+        // Atomically pop the oldest waiting member from the shared queue.
+        const res = (await redis.zpopmin(KEYS.queue, 1)) as Array<
+          string | number
+        >;
+        if (!res || res.length === 0) break; // queue empty
+        const candidateId = String(res[0]);
+
+        const candidate = this.members.get(candidateId);
+        const usable =
+          candidate &&
+          candidate.status === 'waiting' &&
+          candidate.socket.readyState === WebSocket.OPEN;
+
+        // Skip stale/foreign/disconnected ids (don't requeue — they're gone).
+        if (!usable) continue;
+
+        picked.push(candidateId);
+
+        if (picked.length === 2) {
+          this.pair(picked[0]!, picked[1]!);
+          picked.length = 0;
+        }
       }
 
-      // Pair them up.
-      user1.partnerId = id2;
-      user2.partnerId = id1;
-      user1.status = 'matched';
-      user2.status = 'matched';
-
-      console.log(`[match] ${id1} <-> ${id2}`);
-
-      // user1 is the initiator and creates the WebRTC offer.
-      this.send(user1.socket, { type: 'matched', partnerId: id2, initiator: true });
-      this.send(user2.socket, { type: 'matched', partnerId: id1, initiator: false });
+      // One valid member left without a partner — put it back in the queue.
+      if (picked.length === 1) {
+        await redis.zadd(KEYS.queue, { score: Date.now(), member: picked[0]! });
+      }
+    } finally {
+      this.matching = false;
     }
   }
 
-  /** Forward a signaling payload to the current partner. */
+  private pair(id1: string, id2: string) {
+    const user1 = this.members.get(id1);
+    const user2 = this.members.get(id2);
+    if (!user1 || !user2) return;
+
+    user1.partnerId = id2;
+    user2.partnerId = id1;
+    user1.status = 'matched';
+    user2.status = 'matched';
+
+    console.log(`[match] ${id1} <-> ${id2}`);
+
+    // user1 is the initiator and creates the WebRTC offer.
+    this.send(user1.socket, { type: 'matched', partnerId: id2, initiator: true });
+    this.send(user2.socket, { type: 'matched', partnerId: id1, initiator: false });
+  }
+
+  /** Forward a signaling payload to the current partner (same instance). */
   private relaySignal(fromId: string, signal: unknown) {
     const member = this.members.get(fromId);
     if (!member || !member.partnerId) return;
@@ -167,72 +251,124 @@ export class MemberManager {
   }
 
   /** "Next": leave the current match and re-enter the queue. */
-  private next(id: string) {
+  private async next(id: string) {
     const member = this.members.get(id);
     if (!member) return;
-
-    this.breakPair(id, true);
-    this.enqueue(id);
+    await this.breakPair(id, true);
+    await this.enqueue(id);
   }
 
   /** "Stop": leave the match/queue and go idle. */
-  private stop(id: string) {
+  private async stop(id: string) {
     const member = this.members.get(id);
     if (!member) return;
-
-    this.breakPair(id, true);
-    this.removeFromQueue(id);
+    await this.breakPair(id, true);
+    await redis.zrem(KEYS.queue, id);
     member.status = 'idle';
     this.send(member.socket, { type: 'stopped' });
   }
 
   /**
-   * Break the pairing for `id`. Notifies the partner and, if `requeuePartner`
-   * is true, puts the partner back into the matching queue.
+   * Break the pairing for `id`. Notifies the partner and optionally requeues
+   * them so they get matched with someone new.
    */
-  private breakPair(id: string, requeuePartner: boolean) {
+  private async breakPair(id: string, requeuePartner: boolean) {
     const member = this.members.get(id);
     if (!member || !member.partnerId) return;
 
     const partner = this.members.get(member.partnerId);
     member.partnerId = null;
 
-    if (partner) {
-      partner.partnerId = null;
-      if (partner.socket.readyState === WebSocket.OPEN) {
-        this.send(partner.socket, { type: 'partner-left' });
-      }
-      if (requeuePartner && partner.socket.readyState === WebSocket.OPEN) {
-        partner.status = 'waiting';
-        if (!this.queue.includes(partner.id)) this.queue.push(partner.id);
-        this.send(partner.socket, { type: 'waiting' });
-      } else {
-        partner.status = 'idle';
-      }
+    if (!partner) return;
+    partner.partnerId = null;
+
+    const partnerOpen = partner.socket.readyState === WebSocket.OPEN;
+    if (partnerOpen) this.send(partner.socket, { type: 'partner-left' });
+
+    if (requeuePartner && partnerOpen) {
+      partner.status = 'waiting';
+      await redis.zadd(KEYS.queue, { score: Date.now(), member: partner.id });
+      this.send(partner.socket, { type: 'waiting' });
+      await this.tryMatch();
+    } else {
+      partner.status = 'idle';
     }
   }
 
-  private handleDisconnect(id: string) {
+  private async handleDisconnect(id: string) {
     const member = this.members.get(id);
     if (!member) return;
 
-    this.breakPair(id, true);
-    this.removeFromQueue(id);
-    this.members.delete(id);
-
-    console.log(`[disconnect] ${id} — online: ${this.members.size}`);
-
-    this.broadcastOnlineCount();
-    this.tryMatch();
+    try {
+      await this.breakPair(id, true);
+      await this.cleanupSharedState(id);
+    } catch (err) {
+      console.error(`[disconnect] cleanup error for ${id}:`, err);
+    } finally {
+      this.members.delete(id);
+      console.log(`[disconnect] ${id}`);
+      await this.broadcastOnlineCount().catch(() => {});
+      await this.tryMatch().catch(() => {});
+    }
   }
 
-  private removeFromQueue(id: string) {
-    this.queue = this.queue.filter((qid) => qid !== id);
+  /** Remove a member from the shared queue + presence. */
+  private async cleanupSharedState(id: string) {
+    await Promise.all([
+      redis.zrem(KEYS.queue, id),
+      redis.zrem(KEYS.online, id),
+    ]);
   }
 
-  private broadcastOnlineCount() {
-    const count = this.members.size;
+  /** Mark a member as recently seen (presence). */
+  private async touchPresence(id: string) {
+    await redis.zadd(KEYS.online, { score: Date.now(), member: id });
+  }
+
+  /** Count members seen within the presence window (auto-prunes ghosts). */
+  private async broadcastOnlineCount() {
+    const cutoff = Date.now() - ONLINE_WINDOW_MS;
+    // Drop anyone not seen recently, then count the rest.
+    await redis.zremrangebyscore(KEYS.online, 0, cutoff);
+    const count = await redis.zcard(KEYS.online);
     this.broadcast({ type: 'online', count });
+  }
+
+  /** Native ws heartbeat: ping clients, terminate dead ones, refresh presence. */
+  private startHeartbeat() {
+    this.heartbeatTimer = setInterval(() => {
+      void this.runHeartbeat();
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private async runHeartbeat() {
+    const now = Date.now();
+    const presenceUpdates: Promise<unknown>[] = [];
+
+    this.members.forEach((member) => {
+      if (!member.isAlive) {
+        // Missed the previous ping — assume dead and drop it.
+        member.socket.terminate();
+        return;
+      }
+      member.isAlive = false;
+      try {
+        member.socket.ping();
+      } catch {
+        member.socket.terminate();
+        return;
+      }
+      presenceUpdates.push(
+        redis.zadd(KEYS.online, { score: now, member: member.id })
+      );
+    });
+
+    try {
+      await Promise.allSettled(presenceUpdates);
+      await this.broadcastOnlineCount();
+    } catch (err) {
+      console.error('[heartbeat] error:', err);
+    }
   }
 
   private send(socket: WebSocket, payload: unknown) {
