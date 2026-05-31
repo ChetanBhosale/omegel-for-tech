@@ -3,6 +3,7 @@
 import { GlassButton } from "@/components/ui/glass-button";
 import { GithubIcon } from "@/components/icons";
 import { useStartMatching } from "@/hooks/use-start-matching";
+import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,8 +24,13 @@ export function StartButton({
 }) {
   const startMatching = useStartMatching();
 
+  const handleClick = () => {
+    trackEvent("Start Matching Clicked", { source: "cta_button" });
+    startMatching();
+  };
+
   return (
-    <GlassButton size={size} onClick={startMatching} className={className}>
+    <GlassButton size={size} onClick={handleClick} className={className}>
       <GithubIcon className={cn(iconSize)} />
       {label}
     </GlassButton>
