@@ -1,0 +1,2 @@
+[deploy]
+preDeploy = "cd packages/db && bunx prisma generate"
