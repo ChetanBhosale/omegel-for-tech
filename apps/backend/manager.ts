@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import type { Server } from 'http';
 import { redis, KEYS } from './src/redis';
+import { log, shortId } from './src/logger';
 
 type MemberStatus = 'idle' | 'waiting' | 'matched';
 
@@ -51,17 +52,17 @@ export class MemberManager {
 
   init(target: Server | number = 4000) {
     if (this.wss) {
-      console.log('WebSocket server already running');
+      log.warn('ws', 'WebSocket server already running');
       return;
     }
 
     const opts = { maxPayload: MAX_PAYLOAD_BYTES };
     if (typeof target === 'number') {
       this.wss = new WebSocketServer({ port: target, ...opts });
-      console.log(`WebSocket server running on ws://localhost:${target}`);
+      log.info('ws', `WebSocket server listening on ws://localhost:${target}`);
     } else {
       this.wss = new WebSocketServer({ server: target, ...opts });
-      console.log('WebSocket server attached to HTTP server');
+      log.info('ws', 'WebSocket server attached to HTTP server');
     }
 
     this.wss.on('connection', (socket: WebSocket) => {
@@ -69,12 +70,19 @@ export class MemberManager {
     });
 
     this.startHeartbeat();
+    log.info('ws', 'matchmaker ready', {
+      heartbeat: `${HEARTBEAT_INTERVAL_MS / 1000}s`,
+    });
   }
 
   /** Gracefully stop the server (used on shutdown). */
   async shutdown() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
+
+    log.info('ws', 'shutting down — cleaning up sockets', {
+      sockets: this.members.size,
+    });
 
     // Best-effort cleanup of this instance's members from shared state.
     const ids = [...this.members.keys()];
@@ -119,17 +127,21 @@ export class MemberManager {
     });
 
     socket.on('error', (err) => {
-      console.error(`[ws-error] ${id}:`, err.message);
+      log.error('ws', 'socket error', { id: shortId(id), err: err.message });
       void this.handleDisconnect(id);
     });
 
     try {
       await this.touchPresence(id);
       this.send(socket, { type: 'connected', id });
-      await this.broadcastOnlineCount();
-      console.log(`[connect] ${id}`);
+      const online = await this.broadcastOnlineCount();
+      log.info('connect', `new person joined`, {
+        id: shortId(id),
+        sockets: this.members.size,
+        online,
+      });
     } catch (err) {
-      console.error('[connect] presence error:', err);
+      log.error('connect', 'presence error', { id: shortId(id), err: String(err) });
     }
   }
 
@@ -158,7 +170,10 @@ export class MemberManager {
           break;
       }
     } catch (err) {
-      console.error(`[message] error handling "${msg?.type}" for ${id}:`, err);
+      log.error('message', `error handling "${msg?.type}"`, {
+        id: shortId(id),
+        err: String(err),
+      });
     }
   }
 
@@ -173,6 +188,12 @@ export class MemberManager {
     member.status = 'waiting';
     // Sorted set keyed by enqueue time → FIFO ordering, set semantics (no dupes).
     await redis.zadd(KEYS.queue, { score: Date.now(), member: id });
+
+    const queueSize = await redis.zcard(KEYS.queue);
+    log.info('queue', 'person started matching', {
+      id: shortId(id),
+      waiting: queueSize,
+    });
 
     this.send(member.socket, { type: 'waiting' });
     await this.tryMatch();
@@ -232,7 +253,10 @@ export class MemberManager {
     user1.status = 'matched';
     user2.status = 'matched';
 
-    console.log(`[match] ${id1} <-> ${id2}`);
+    log.info('match', 'paired two developers', {
+      a: shortId(id1),
+      b: shortId(id2),
+    });
 
     // user1 is the initiator and creates the WebRTC offer.
     this.send(user1.socket, { type: 'matched', partnerId: id2, initiator: true });
@@ -254,6 +278,7 @@ export class MemberManager {
   private async next(id: string) {
     const member = this.members.get(id);
     if (!member) return;
+    log.info('flow', 'person clicked next', { id: shortId(id) });
     await this.breakPair(id, true);
     await this.enqueue(id);
   }
@@ -262,6 +287,7 @@ export class MemberManager {
   private async stop(id: string) {
     const member = this.members.get(id);
     if (!member) return;
+    log.info('flow', 'person stopped matching', { id: shortId(id) });
     await this.breakPair(id, true);
     await redis.zrem(KEYS.queue, id);
     member.status = 'idle';
@@ -303,11 +329,15 @@ export class MemberManager {
       await this.breakPair(id, true);
       await this.cleanupSharedState(id);
     } catch (err) {
-      console.error(`[disconnect] cleanup error for ${id}:`, err);
+      log.error('disconnect', 'cleanup error', { id: shortId(id), err: String(err) });
     } finally {
       this.members.delete(id);
-      console.log(`[disconnect] ${id}`);
-      await this.broadcastOnlineCount().catch(() => {});
+      const online = await this.broadcastOnlineCount().catch(() => undefined);
+      log.info('disconnect', 'person left', {
+        id: shortId(id),
+        sockets: this.members.size,
+        online: online ?? '?',
+      });
       await this.tryMatch().catch(() => {});
     }
   }
@@ -326,12 +356,13 @@ export class MemberManager {
   }
 
   /** Count members seen within the presence window (auto-prunes ghosts). */
-  private async broadcastOnlineCount() {
+  private async broadcastOnlineCount(): Promise<number> {
     const cutoff = Date.now() - ONLINE_WINDOW_MS;
     // Drop anyone not seen recently, then count the rest.
     await redis.zremrangebyscore(KEYS.online, 0, cutoff);
     const count = await redis.zcard(KEYS.online);
     this.broadcast({ type: 'online', count });
+    return count;
   }
 
   /** Native ws heartbeat: ping clients, terminate dead ones, refresh presence. */
@@ -344,11 +375,13 @@ export class MemberManager {
   private async runHeartbeat() {
     const now = Date.now();
     const presenceUpdates: Promise<unknown>[] = [];
+    let terminated = 0;
 
     this.members.forEach((member) => {
       if (!member.isAlive) {
         // Missed the previous ping — assume dead and drop it.
         member.socket.terminate();
+        terminated++;
         return;
       }
       member.isAlive = false;
@@ -356,6 +389,7 @@ export class MemberManager {
         member.socket.ping();
       } catch {
         member.socket.terminate();
+        terminated++;
         return;
       }
       presenceUpdates.push(
@@ -365,9 +399,14 @@ export class MemberManager {
 
     try {
       await Promise.allSettled(presenceUpdates);
-      await this.broadcastOnlineCount();
+      const online = await this.broadcastOnlineCount();
+      log.info('heartbeat', 'pulse', {
+        sockets: this.members.size,
+        online,
+        ...(terminated ? { droppedDead: terminated } : {}),
+      });
     } catch (err) {
-      console.error('[heartbeat] error:', err);
+      log.error('heartbeat', 'error', { err: String(err) });
     }
   }
 

@@ -7,6 +7,7 @@ import Secrets from '@repo/secrets/backend';
 import authRoutes from './src/auth/auth.routes';
 import { notFoundHandler, errorHandler } from './src/middleware/error';
 import { authRateLimiter, globalRateLimiter } from './src/middleware/rate-limit';
+import { log } from './src/logger';
 
 const app = express();
 
@@ -21,10 +22,27 @@ app.set('trust proxy', 1);
 // from the frontend origin.
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
+// Allowed origins for CORS. Includes the configured FRONTEND_URL plus the
+// known production domains. Cookies require an exact origin (no wildcard).
+const ALLOWED_ORIGINS = [
+  Secrets.FRONTEND_URL,
+  'http://localhost:3000',
+  'https://omegel-for-tech-app.vercel.app',
+  'https://omegelfortech.com',
+  'https://www.omegelfortech.com',
+].filter(Boolean) as string[];
+
 // CORS must allow credentials so the auth cookie is sent/received cross-origin.
 app.use(
   cors({
-    origin: Secrets.FRONTEND_URL,
+    origin(origin, callback) {
+      // Allow non-browser clients (no Origin header) and any whitelisted origin.
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      log.warn('cors', 'blocked origin', { origin });
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );
@@ -45,7 +63,10 @@ app.use(errorHandler);
 
 // HTTP and WebSocket share the same server/port.
 const server = app.listen(PORT, () => {
-  console.log(`HTTP + WS server running on port ${PORT}`);
+  log.info('server', `HTTP + WS listening`, {
+    port: PORT,
+    env: Secrets.NODE_ENV,
+  });
 });
 
 const manager = MemberManager.getInstance();
@@ -53,11 +74,11 @@ manager.init(server);
 
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
+  log.error('process', 'unhandledRejection', { reason: String(reason) });
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err);
+  log.error('process', 'uncaughtException', { err: String(err) });
 });
 
 // Graceful shutdown: stop accepting connections, clean up sockets + Redis.
@@ -65,18 +86,18 @@ let shuttingDown = false;
 async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[shutdown] received ${signal}, closing gracefully…`);
+  log.info('shutdown', `received ${signal}, closing gracefully…`);
 
   const forceExit = setTimeout(() => process.exit(1), 10_000);
   try {
     await manager.shutdown();
     server.close(() => {
       clearTimeout(forceExit);
-      console.log('[shutdown] closed cleanly');
+      log.info('shutdown', 'closed cleanly');
       process.exit(0);
     });
   } catch (err) {
-    console.error('[shutdown] error:', err);
+    log.error('shutdown', 'error', { err: String(err) });
     clearTimeout(forceExit);
     process.exit(1);
   }
