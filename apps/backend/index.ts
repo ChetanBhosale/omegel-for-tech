@@ -29,6 +29,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'https://omegel-for-tech-app.vercel.app',
   'https://omegelfortech.com',
+  'https://omeglefortech.com',
   'https://www.omegelfortech.com',
 ].filter(Boolean) as string[];
 
