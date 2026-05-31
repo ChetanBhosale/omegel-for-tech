@@ -1,2 +1,2 @@
 [deploy]
-preDeploy = "cd packages/db && bunx prisma generate"
+preDeploy = "cd ../../packages/db && bunx prisma generate"
