@@ -15,6 +15,13 @@ export type MatchStatus = "connecting" | "idle" | "waiting" | "matched";
 
 export type MediaPermission = "pending" | "granted" | "denied";
 
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: "you" | "stranger";
+  timestamp: number;
+}
+
 export interface WebRTCContextValue {
   status: MatchStatus;
   onlineCount: number;
@@ -23,6 +30,12 @@ export interface WebRTCContextValue {
   requestMedia: () => void;
   localVideoRef: React.RefObject<HTMLVideoElement | null>;
   remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
+  /** P2P chat messages for the current match. Cleared on next/stop. */
+  messages: ChatMessage[];
+  /** Send a text message to the matched peer via DataChannel. */
+  sendMessage: (text: string) => void;
+  /** Whether the DataChannel is open and ready to send. */
+  chatReady: boolean;
   start: () => void;
   stop: () => void;
   next: () => void;
@@ -81,11 +94,17 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const localStreamRef = useRef<MediaStream | null>(null);
   // Cached ICE servers (STUN + TURN) fetched from Metered.
   const iceServersRef = useRef<RTCIceServer[]>(FALLBACK_ICE_SERVERS);
+  // P2P DataChannel for text chat.
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const sendRef = useRef<(payload: unknown) => void>(() => {});
+
+  // Chat state (P2P, never stored in a DB).
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatReady, setChatReady] = useState(false);
 
   const ensureLocalStream = useCallback(async () => {
     if (localStreamRef.current) {
@@ -132,12 +151,16 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     if (pcRef.current) {
       pcRef.current.onicecandidate = null;
       pcRef.current.ontrack = null;
+      pcRef.current.ondatachannel = null;
       pcRef.current.close();
       pcRef.current = null;
     }
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+    dataChannelRef.current = null;
+    setChatReady(false);
+    setMessages([]);
   }, []);
 
   const createPeer = useCallback(
@@ -166,6 +189,33 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           });
         }
       };
+
+      // --- DataChannel for P2P text chat ---
+      const setupChannel = (channel: RTCDataChannel) => {
+        dataChannelRef.current = channel;
+        channel.onopen = () => setChatReady(true);
+        channel.onclose = () => setChatReady(false);
+        channel.onmessage = (e) => {
+          const msg: ChatMessage = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            text: String(e.data),
+            sender: "stranger",
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, msg]);
+        };
+      };
+
+      if (initiator) {
+        // Initiator creates the channel before the offer.
+        const channel = pc.createDataChannel("chat", { ordered: true });
+        setupChannel(channel);
+      } else {
+        // Receiver listens for the channel from the initiator.
+        pc.ondatachannel = (event) => {
+          setupChannel(event.channel);
+        };
+      }
 
       if (initiator) {
         const offer = await pc.createOffer();
@@ -338,6 +388,21 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     setStatus("waiting");
   }, [closePeer]);
 
+  const sendMessage = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || !dataChannelRef.current) return;
+    if (dataChannelRef.current.readyState !== "open") return;
+
+    dataChannelRef.current.send(trimmed);
+    const msg: ChatMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: trimmed,
+      sender: "you",
+      timestamp: Date.now(),
+    };
+    setMessages((prev) => [...prev, msg]);
+  }, []);
+
   const value: WebRTCContextValue = {
     status,
     onlineCount,
@@ -346,6 +411,9 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     requestMedia,
     localVideoRef,
     remoteVideoRef,
+    messages,
+    sendMessage,
+    chatReady,
     start,
     stop,
     next,

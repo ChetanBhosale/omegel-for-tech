@@ -13,21 +13,28 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
 }
 
 export async function fetchMe(): Promise<User | null> {
-  const res = await apiFetch(ENDPOINTS.auth.me);
+  try {
+    const res = await apiFetch(ENDPOINTS.auth.me);
 
-  if (res.status === 401) {
+    if (res.status === 401) {
+      return null;
+    }
+    if (!res.ok) {
+      // Non-auth server errors: treat as "not signed in" rather than throwing,
+      // so react-query doesn't retry infinitely on CORS/network issues.
+      return null;
+    }
+
+    const json = await res.json();
+    const parsed = MeResponseSchema.safeParse(json);
+    if (!parsed.success) {
+      return null;
+    }
+    return parsed.data.user;
+  } catch {
+    // Network error (CORS blocked, offline, etc.) — treat as not signed in.
     return null;
   }
-  if (!res.ok) {
-    throw new Error(`Failed to fetch user (${res.status})`);
-  }
-
-  const json = await res.json();
-  const parsed = MeResponseSchema.safeParse(json);
-  if (!parsed.success) {
-    throw new Error("Invalid /me response shape");
-  }
-  return parsed.data.user;
 }
 
 export async function logout(): Promise<void> {

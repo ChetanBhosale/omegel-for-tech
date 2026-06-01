@@ -5,6 +5,7 @@ import { MatchNav } from "@/components/match/match-nav";
 import { VideoTile } from "@/components/match/video-tile";
 import { MatchControls } from "@/components/match/match-controls";
 import { PermissionDialog } from "@/components/match/permission-dialog";
+import { ChatPanel } from "@/components/match/chat-panel";
 
 export default function MatchClient() {
   const {
@@ -28,22 +29,32 @@ export default function MatchClient() {
 
       <MatchNav status={status} onlineCount={onlineCount} />
 
-      <main className="relative z-10 mx-auto flex w-full max-w-[1600px] flex-1 flex-col items-center gap-6 px-4 py-4 sm:px-6">
-        {/* Video tiles */}
-        <div className="grid h-[70vh] w-full grid-cols-1 gap-5 md:grid-cols-2">
-          <VideoTile
-            muted={false}
-            videoRef={remoteVideoRef}
-            placeholder={
-              status === "matched"
-                ? null
-                : status === "waiting"
-                  ? "Looking for an Real match!"
-                  : "Press start matching to begin"
-            }
-            loading={status === "waiting"}
-          />
-          <VideoTile muted mirror videoRef={localVideoRef} />
+      <main className="relative z-10 mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 px-4 py-4 sm:px-6">
+        {/* Video + Chat layout */}
+        <div className="flex flex-1 flex-col gap-4 lg:flex-row">
+          {/* Video tiles (left side on desktop) */}
+          <div className="flex flex-1 flex-col gap-4">
+            <div className="grid h-[60vh] w-full grid-cols-1 gap-4 md:grid-cols-2 lg:h-full">
+              <VideoTile
+                muted={false}
+                videoRef={remoteVideoRef}
+                placeholder={
+                  status === "matched"
+                    ? null
+                    : status === "waiting"
+                      ? "Looking for a real match!"
+                      : "Press Start Matching to begin"
+                }
+                loading={status === "waiting"}
+              />
+              <VideoTile muted mirror videoRef={localVideoRef} />
+            </div>
+          </div>
+
+          {/* Chat panel (right side on desktop, below on mobile) */}
+          <div className="h-[300px] w-full shrink-0 lg:h-auto lg:w-[360px]">
+            <ChatPanel />
+          </div>
         </div>
 
         <MatchControls

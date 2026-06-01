@@ -15,6 +15,9 @@ function cookieOptions(maxAgeMs: number) {
     sameSite: isProd ? ('none' as const) : ('lax' as const),
     maxAge: maxAgeMs,
     path: '/',
+    // In production, scope the cookie to the parent domain so it's shared
+    // between app.omeglefortech.com (backend) and omeglefortech.com (frontend).
+    ...(isProd ? { domain: '.omeglefortech.com' } : {}),
   };
 }
 

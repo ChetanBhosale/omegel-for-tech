@@ -9,6 +9,9 @@ export function useUser() {
   const query = useQuery({
     queryKey: queryKeys.me,
     queryFn: fetchMe,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60 * 1000,
   });
 
   return {
