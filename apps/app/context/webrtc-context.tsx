@@ -18,15 +18,10 @@ export type MediaPermission = "pending" | "granted" | "denied";
 export interface WebRTCContextValue {
   status: MatchStatus;
   onlineCount: number;
-  /** Camera/mic permission state. "denied" blocks the experience. */
   mediaPermission: MediaPermission;
-  /** True when the browser has hard-blocked camera/mic (won't re-prompt). */
   permissionBlocked: boolean;
-  /** Re-request camera/mic access (used by the permission dialog). */
   requestMedia: () => void;
-  /** Attach to the local <video> element (your own camera). */
   localVideoRef: React.RefObject<HTMLVideoElement | null>;
-  /** Attach to the remote <video> element (the stranger). */
   remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
   start: () => void;
   stop: () => void;
@@ -35,19 +30,44 @@ export interface WebRTCContextValue {
 
 const WebRTCContext = createContext<WebRTCContextValue | null>(null);
 
-// Browser WebSocket is API-compatible with the backend `ws` server.
 function getWsUrl(): string {
   const raw = FrontendSecrets.PUBLIC_WS_URL ?? "http://localhost:4000";
-  // Backend is plain ws, convert http(s) -> ws(s).
   return raw.replace(/^http/, "ws");
 }
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-};
+// Fallback ICE config used if the Metered fetch fails. STUN-only still
+// connects most same-network and friendly-NAT calls.
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun.relay.metered.ca:80" },
+];
 
-const HEARTBEAT_INTERVAL = 25_000; // ping every 25s to keep the socket alive
-const RECONNECT_DELAY = 2_000; // wait 2s before retrying a dropped connection
+/**
+ * Fetch the full STUN + TURN ICE server list from Metered. The apiKey is
+ * credential-scoped and safe for the browser. Falls back to STUN-only if the
+ * request fails so calls still work on friendly networks.
+ */
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+  const base = FrontendSecrets.METERED_TURN_URL;
+  const key = FrontendSecrets.METERED_API_KEY;
+  if (!base || !key) return FALLBACK_ICE_SERVERS;
+
+  try {
+    const res = await fetch(`${base}?apiKey=${key}`);
+    if (!res.ok) throw new Error(`Metered responded ${res.status}`);
+    const servers = (await res.json()) as RTCIceServer[];
+    if (!Array.isArray(servers) || servers.length === 0) {
+      return FALLBACK_ICE_SERVERS;
+    }
+    return servers;
+  } catch (err) {
+    console.error("Failed to fetch TURN servers, using fallback", err);
+    return FALLBACK_ICE_SERVERS;
+  }
+}
+
+const HEARTBEAT_INTERVAL = 25_000;
+const RECONNECT_DELAY = 2_000;
 
 export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<MatchStatus>("connecting");
@@ -59,17 +79,16 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  // Cached ICE servers (STUN + TURN) fetched from Metered.
+  const iceServersRef = useRef<RTCIceServer[]>(FALLBACK_ICE_SERVERS);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const sendRef = useRef<(payload: unknown) => void>(() => {});
 
-  // Acquire the local camera/mic. Idempotent — safe to call multiple times.
-  // Updates `mediaPermission` so the UI can block when access is denied.
   const ensureLocalStream = useCallback(async () => {
     if (localStreamRef.current) {
-      // Make sure it's attached to the video element even if already acquired.
       if (localVideoRef.current && !localVideoRef.current.srcObject) {
         localVideoRef.current.srcObject = localStreamRef.current;
       }
@@ -84,8 +103,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      // If a track ends (camera unplugged or permission revoked mid-session),
-      // drop the stream and re-flag as denied so the dialog reappears.
       stream.getTracks().forEach((track) => {
         track.addEventListener("ended", () => {
           localStreamRef.current = null;
@@ -96,27 +113,21 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       setPermissionBlocked(false);
       return stream;
     } catch (err) {
-      // NotAllowedError (denied), NotFoundError (no device), etc.
       console.error("getUserMedia failed", err);
       setMediaPermission("denied");
 
-      // Detect a *hard* block (user clicked "Block") vs. a dismissed prompt.
-      // When hard-blocked, the browser won't re-show its popup, so we must
-      // guide the user to the address-bar settings instead.
       try {
         const result = await navigator.permissions.query({
           name: "camera" as PermissionName,
         });
         setPermissionBlocked(result.state === "denied");
       } catch {
-        // Permissions API unsupported (e.g. Safari) — assume re-prompt works.
         setPermissionBlocked(false);
       }
       return null;
     }
   }, []);
 
-  // Tear down any active peer connection (but keep the local stream).
   const closePeer = useCallback(() => {
     if (pcRef.current) {
       pcRef.current.onicecandidate = null;
@@ -134,14 +145,12 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       closePeer();
 
       const stream = await ensureLocalStream();
-      if (!stream) return null; // no camera/mic access — can't connect
-      const pc = new RTCPeerConnection(ICE_SERVERS);
+      if (!stream) return null;
+      const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
       pcRef.current = pc;
 
-      // Push local tracks to the peer.
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-      // Remote track arrives -> render it.
       pc.ontrack = (event) => {
         const [remoteStream] = event.streams;
         if (remoteVideoRef.current && remoteStream) {
@@ -149,7 +158,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      // Trickle ICE candidates through the signaling channel.
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           sendRef.current({
@@ -159,7 +167,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      // The initiator creates and sends the offer.
       if (initiator) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -174,7 +181,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     [closePeer, ensureLocalStream]
   );
 
-  // Handle incoming signaling payloads.
   const handleSignal = useCallback(async (signal: any) => {
     const pc = pcRef.current;
     if (!pc) return;
@@ -198,11 +204,13 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Turn on the user's camera immediately when they land on the page —
-  // independent of the WebSocket / matching state. The local stream lives for
-  // the lifetime of the provider and is cleaned up on unmount.
   useEffect(() => {
     ensureLocalStream();
+
+    // Fetch STUN + TURN servers once on mount so they're ready before a match.
+    fetchIceServers().then((servers) => {
+      iceServersRef.current = servers;
+    });
 
     return () => {
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -213,7 +221,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     };
   }, [ensureLocalStream]);
 
-  // Re-request media (used by the permission dialog's "Try again" button).
   const requestMedia = useCallback(() => {
     setMediaPermission("pending");
     ensureLocalStream();
@@ -247,8 +254,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setStatus("idle");
 
-        // Heartbeat: ping the server periodically so the connection isn't
-        // dropped by idle timeouts (proxies, load balancers, etc.).
         heartbeatTimer = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "ping" }));
@@ -266,7 +271,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 
         switch (msg.type) {
           case "pong":
-            break; // heartbeat ack
+            break;
           case "online":
             setOnlineCount(msg.count);
             break;
@@ -297,14 +302,11 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         clearTimers();
         closePeer();
         if (cancelled) return;
-        // Connection dropped or server unreachable (e.g. cold start) —
-        // show "connecting" and retry until it comes back.
         setStatus("connecting");
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY);
       };
 
       ws.onerror = () => {
-        // Let onclose handle reconnection.
         ws.close();
       };
     };
@@ -354,7 +356,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Access the shared WebRTC/matching state. Must be used within a WebRTCProvider. */
 export function useWebRTC(): WebRTCContextValue {
   const ctx = useContext(WebRTCContext);
   if (!ctx) {

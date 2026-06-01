@@ -11,7 +11,6 @@ const STATUS_LABEL: Record<MatchStatus, string> = {
   matched: "Connected — say hi 👋",
 };
 
-/** Top bar for the match page: logo, centered live status, online count, profile. */
 export function MatchNav({
   status,
   onlineCount,

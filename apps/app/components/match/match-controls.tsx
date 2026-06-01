@@ -12,7 +12,6 @@ interface MatchControlsProps {
   onStop: () => void;
 }
 
-/** The bottom control bar: Start when idle, Next + Stop when matching. */
 export function MatchControls({
   status,
   onStart,

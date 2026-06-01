@@ -1,4 +1,3 @@
-/** Glass pill showing the number of people currently online, with a live pulse dot. */
 export function OnlineBadge({ count }: { count: number }) {
   return (
     <span className="liquid-glass flex items-center gap-2 rounded-full px-4 py-1.5 text-sm text-foreground">

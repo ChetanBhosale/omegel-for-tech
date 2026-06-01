@@ -13,7 +13,6 @@ import {
 import { useUser, useLogout } from "@/hooks/use-auth";
 import { trackEvent } from "@/lib/analytics";
 
-/** Avatar button that opens a dropdown with the user's info + logout. */
 export function UserMenu() {
   const { user } = useUser();
   const logout = useLogout();

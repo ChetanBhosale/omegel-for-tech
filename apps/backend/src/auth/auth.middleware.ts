@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyToken, AUTH_COOKIE } from './jwt';
 
-// Augment Express's Request with the authenticated user id.
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -11,10 +10,6 @@ declare global {
   }
 }
 
-/**
- * Express middleware that requires a valid session cookie. Attaches `userId`
- * to the request for downstream handlers.
- */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.[AUTH_COOKIE];
   if (!token) {

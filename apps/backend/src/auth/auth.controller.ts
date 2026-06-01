@@ -18,28 +18,18 @@ function cookieOptions(maxAgeMs: number) {
   };
 }
 
-/**
- * GET /api/auth/:provider
- * Kicks off the OAuth flow by redirecting to the provider's authorize URL.
- */
 export function startOAuth(req: Request, res: Response) {
   const provider = getProvider(req.params.provider ?? '');
   if (!provider) {
     return res.status(404).json({ error: 'Unsupported auth provider' });
   }
 
-  // CSRF protection: random state echoed back in the callback.
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie(STATE_COOKIE, state, cookieOptions(10 * 60 * 1000)); // 10 min
+  res.cookie(STATE_COOKIE, state, cookieOptions(10 * 60 * 1000));
 
   return res.redirect(provider.getAuthorizationUrl(state));
 }
 
-/**
- * GET /api/auth/:provider/callback
- * Handles the provider redirect: validates state, exchanges the code,
- * upserts the user, issues a session cookie, and redirects to the frontend.
- */
 export async function handleOAuthCallback(req: Request, res: Response) {
   const provider = getProvider(req.params.provider ?? '');
   if (!provider) {
@@ -56,7 +46,6 @@ export async function handleOAuthCallback(req: Request, res: Response) {
     return redirectWithError(res, 'invalid_state');
   }
 
-  // State consumed — clear it.
   res.clearCookie(STATE_COOKIE, { path: '/' });
 
   try {
@@ -64,7 +53,7 @@ export async function handleOAuthCallback(req: Request, res: Response) {
     const user = await upsertUserFromProfile(profile);
 
     const token = signToken({ sub: user.id, email: user.email });
-    res.cookie(AUTH_COOKIE, token, cookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
+    res.cookie(AUTH_COOKIE, token, cookieOptions(7 * 24 * 60 * 60 * 1000));
 
     return res.redirect(`${Secrets.FRONTEND_URL}/match`);
   } catch (err) {
@@ -73,10 +62,6 @@ export async function handleOAuthCallback(req: Request, res: Response) {
   }
 }
 
-/**
- * GET /api/auth/me
- * Returns the currently authenticated user (or 401).
- */
 export async function getMe(req: Request, res: Response) {
   const token = req.cookies?.[AUTH_COOKIE];
   if (!token) {
@@ -104,10 +89,6 @@ export async function getMe(req: Request, res: Response) {
   });
 }
 
-/**
- * POST /api/auth/logout
- * Clears the session cookie.
- */
 export function logout(_req: Request, res: Response) {
   res.clearCookie(AUTH_COOKIE, { path: '/' });
   return res.json({ success: true });

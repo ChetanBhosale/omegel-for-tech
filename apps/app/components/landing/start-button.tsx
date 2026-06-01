@@ -6,11 +6,6 @@ import { useStartMatching } from "@/hooks/use-start-matching";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
-/**
- * Self-contained client island for the primary CTA. Lets the surrounding
- * landing page stay a server component (so all the copy is server rendered
- * and indexable) while the button keeps its auth behaviour.
- */
 export function StartButton({
   className,
   size = "md",

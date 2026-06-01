@@ -35,7 +35,6 @@ export const githubProvider: OAuthProvider = {
   },
 
   async handleCallback(code: string): Promise<NormalizedProfile> {
-    // 1. Exchange the code for an access token.
     const tokenRes = await fetch(GITHUB_TOKEN_URL, {
       method: 'POST',
       headers: {
@@ -65,12 +64,11 @@ export const githubProvider: OAuthProvider = {
 
     const accessToken = tokenData.access_token;
 
-    // 2. Fetch the user profile.
     const userRes = await fetch(GITHUB_USER_URL, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/vnd.github+json',
-        'User-Agent': 'omegeltech',
+        'User-Agent': 'omeglefortech',
       },
     });
 
@@ -80,14 +78,13 @@ export const githubProvider: OAuthProvider = {
 
     const user = (await userRes.json()) as GitHubUser;
 
-    // 3. GitHub may not return a public email; fetch the primary verified one.
     let email = user.email;
     if (!email) {
       const emailRes = await fetch(GITHUB_EMAILS_URL, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: 'application/vnd.github+json',
-          'User-Agent': 'omegeltech',
+          'User-Agent': 'omeglefortech',
         },
       });
       if (emailRes.ok) {

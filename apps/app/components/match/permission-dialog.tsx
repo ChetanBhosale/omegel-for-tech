@@ -11,11 +11,6 @@ import {
 import { GlassButton } from "@/components/ui/glass-button";
 import { useWebRTC } from "@/context/webrtc-context";
 
-/**
- * Non-closable dialog shown when camera/mic permission is denied or missing.
- * The user cannot proceed without granting access — blank feeds would creep
- * out the people they match with.
- */
 export function PermissionDialog() {
   const { mediaPermission, permissionBlocked, requestMedia } = useWebRTC();
 
@@ -25,7 +20,6 @@ export function PermissionDialog() {
     <Dialog open={open}>
       <DialogContent
         showCloseButton={false}
-        // Block all the usual ways of dismissing the dialog.
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -45,11 +39,6 @@ export function PermissionDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {/*
-          If the browser has hard-blocked access it won't re-prompt, so we must
-          guide the user to the address-bar settings. Otherwise "Allow access"
-          will trigger the native browser permission popup.
-        */}
         {permissionBlocked ? (
           <div className="mt-2 rounded-lg bg-muted/50 p-3 text-left text-xs text-muted-foreground">
             <p className="mb-1 font-medium text-foreground">

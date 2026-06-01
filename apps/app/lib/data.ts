@@ -1,10 +1,6 @@
 import { MeResponseSchema, type User } from "@repo/types";
 import { ENDPOINTS, apiUrl } from "./endpoint";
 
-/**
- * Thin fetch wrapper that always sends cookies (the auth session lives in an
- * httpOnly cookie set by the backend) and parses JSON.
- */
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(apiUrl(path), {
     credentials: "include",
@@ -16,11 +12,6 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   });
 }
 
-/**
- * Fetch the currently authenticated user.
- * Returns `null` when not authenticated (backend responds 401).
- * The response is validated against the shared Zod schema from @repo/types.
- */
 export async function fetchMe(): Promise<User | null> {
   const res = await apiFetch(ENDPOINTS.auth.me);
 
@@ -39,12 +30,10 @@ export async function fetchMe(): Promise<User | null> {
   return parsed.data.user;
 }
 
-/** Log the current user out (clears the session cookie on the backend). */
 export async function logout(): Promise<void> {
   await apiFetch(ENDPOINTS.auth.logout, { method: "POST" });
 }
 
-/** React Query keys, centralized to avoid typos and enable easy invalidation. */
 export const queryKeys = {
   me: ["auth", "me"] as const,
 };

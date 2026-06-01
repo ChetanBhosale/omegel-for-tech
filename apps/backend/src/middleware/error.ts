@@ -1,19 +1,13 @@
 import type { Request, Response, NextFunction } from 'express';
 
-/** 404 handler for unmatched routes. */
 export function notFoundHandler(_req: Request, res: Response) {
   res.status(404).json({ error: 'Not found' });
 }
 
-/**
- * Global error handler. Must be registered LAST (after routes). Express
- * recognizes it by its 4-argument signature.
- */
 export function errorHandler(
   err: unknown,
   _req: Request,
   res: Response,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction
 ) {
   console.error('[error]', err);

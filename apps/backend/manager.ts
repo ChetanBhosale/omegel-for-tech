@@ -11,34 +11,19 @@ interface Member {
   socket: WebSocket;
   partnerId: string | null;
   status: MemberStatus;
-  /** Liveness flag toggled by the native ws ping/pong heartbeat. */
   isAlive: boolean;
 }
 
-// Presence: a member is "online" if seen within this window. Auto-expires
-// ghosts (e.g. an instance that crashed without cleaning up).
 const ONLINE_WINDOW_MS = 60_000;
-// How often the server pings clients + refreshes presence.
 const HEARTBEAT_INTERVAL_MS = 30_000;
-// Cap inbound frame size to prevent abuse (signaling payloads are small).
 const MAX_PAYLOAD_BYTES = 64 * 1024;
 
-/**
- * Owns the WebSocket server and matchmaking.
- *
- * Shared state (waiting queue + online presence) lives in Redis so it survives
- * restarts and is consistent. Live sockets are necessarily per-instance (a TCP
- * connection can't be serialized), so signal relay is in-process; cross-
- * instance relay would require pub/sub (a future step).
- */
 export class MemberManager {
   private static instance: MemberManager;
 
   private wss: WebSocketServer | null = null;
   private members: Map<string, Member> = new Map();
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-  /** Serializes matchmaking so concurrent triggers don't double-match. */
   private matching = false;
 
   private constructor() {}
@@ -75,16 +60,14 @@ export class MemberManager {
     });
   }
 
-  /** Gracefully stop the server (used on shutdown). */
   async shutdown() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
 
-    log.info('ws', 'shutting down — cleaning up sockets', {
+    log.info('ws', 'shutting down, cleaning up sockets', {
       sockets: this.members.size,
     });
 
-    // Best-effort cleanup of this instance's members from shared state.
     const ids = [...this.members.keys()];
     await Promise.allSettled(
       ids.map((id) => this.cleanupSharedState(id))
@@ -135,7 +118,7 @@ export class MemberManager {
       await this.touchPresence(id);
       this.send(socket, { type: 'connected', id });
       const online = await this.broadcastOnlineCount();
-      log.info('connect', `new person joined`, {
+      log.info('connect', 'new person joined', {
         id: shortId(id),
         sockets: this.members.size,
         online,
@@ -177,7 +160,6 @@ export class MemberManager {
     }
   }
 
-  /** Add a member to the shared waiting queue and try to make a match. */
   private async enqueue(id: string) {
     const member = this.members.get(id);
     if (!member) return;
@@ -186,7 +168,6 @@ export class MemberManager {
     if (member.status === 'waiting') return;
 
     member.status = 'waiting';
-    // Sorted set keyed by enqueue time → FIFO ordering, set semantics (no dupes).
     await redis.zadd(KEYS.queue, { score: Date.now(), member: id });
 
     const queueSize = await redis.zcard(KEYS.queue);
@@ -199,10 +180,6 @@ export class MemberManager {
     await this.tryMatch();
   }
 
-  /**
-   * Pop waiting members from the shared queue and pair valid local ones.
-   * Serialized via `this.matching` so concurrent calls don't race.
-   */
   private async tryMatch() {
     if (this.matching) return;
     this.matching = true;
@@ -210,11 +187,10 @@ export class MemberManager {
       const picked: string[] = [];
 
       while (true) {
-        // Atomically pop the oldest waiting member from the shared queue.
         const res = (await redis.zpopmin(KEYS.queue, 1)) as Array<
           string | number
         >;
-        if (!res || res.length === 0) break; // queue empty
+        if (!res || res.length === 0) break;
         const candidateId = String(res[0]);
 
         const candidate = this.members.get(candidateId);
@@ -223,7 +199,6 @@ export class MemberManager {
           candidate.status === 'waiting' &&
           candidate.socket.readyState === WebSocket.OPEN;
 
-        // Skip stale/foreign/disconnected ids (don't requeue — they're gone).
         if (!usable) continue;
 
         picked.push(candidateId);
@@ -234,7 +209,6 @@ export class MemberManager {
         }
       }
 
-      // One valid member left without a partner — put it back in the queue.
       if (picked.length === 1) {
         await redis.zadd(KEYS.queue, { score: Date.now(), member: picked[0]! });
       }
@@ -258,12 +232,10 @@ export class MemberManager {
       b: shortId(id2),
     });
 
-    // user1 is the initiator and creates the WebRTC offer.
     this.send(user1.socket, { type: 'matched', partnerId: id2, initiator: true });
     this.send(user2.socket, { type: 'matched', partnerId: id1, initiator: false });
   }
 
-  /** Forward a signaling payload to the current partner (same instance). */
   private relaySignal(fromId: string, signal: unknown) {
     const member = this.members.get(fromId);
     if (!member || !member.partnerId) return;
@@ -274,7 +246,6 @@ export class MemberManager {
     this.send(partner.socket, { type: 'signal', signal });
   }
 
-  /** "Next": leave the current match and re-enter the queue. */
   private async next(id: string) {
     const member = this.members.get(id);
     if (!member) return;
@@ -283,7 +254,6 @@ export class MemberManager {
     await this.enqueue(id);
   }
 
-  /** "Stop": leave the match/queue and go idle. */
   private async stop(id: string) {
     const member = this.members.get(id);
     if (!member) return;
@@ -294,10 +264,6 @@ export class MemberManager {
     this.send(member.socket, { type: 'stopped' });
   }
 
-  /**
-   * Break the pairing for `id`. Notifies the partner and optionally requeues
-   * them so they get matched with someone new.
-   */
   private async breakPair(id: string, requeuePartner: boolean) {
     const member = this.members.get(id);
     if (!member || !member.partnerId) return;
@@ -342,7 +308,6 @@ export class MemberManager {
     }
   }
 
-  /** Remove a member from the shared queue + presence. */
   private async cleanupSharedState(id: string) {
     await Promise.all([
       redis.zrem(KEYS.queue, id),
@@ -350,22 +315,18 @@ export class MemberManager {
     ]);
   }
 
-  /** Mark a member as recently seen (presence). */
   private async touchPresence(id: string) {
     await redis.zadd(KEYS.online, { score: Date.now(), member: id });
   }
 
-  /** Count members seen within the presence window (auto-prunes ghosts). */
   private async broadcastOnlineCount(): Promise<number> {
     const cutoff = Date.now() - ONLINE_WINDOW_MS;
-    // Drop anyone not seen recently, then count the rest.
     await redis.zremrangebyscore(KEYS.online, 0, cutoff);
     const count = await redis.zcard(KEYS.online);
     this.broadcast({ type: 'online', count });
     return count;
   }
 
-  /** Native ws heartbeat: ping clients, terminate dead ones, refresh presence. */
   private startHeartbeat() {
     this.heartbeatTimer = setInterval(() => {
       void this.runHeartbeat();
@@ -379,7 +340,6 @@ export class MemberManager {
 
     this.members.forEach((member) => {
       if (!member.isAlive) {
-        // Missed the previous ping — assume dead and drop it.
         member.socket.terminate();
         terminated++;
         return;

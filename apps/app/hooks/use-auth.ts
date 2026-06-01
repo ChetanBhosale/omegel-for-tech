@@ -5,10 +5,6 @@ import type { AuthProviderSlug } from "@repo/types";
 import { fetchMe, logout, queryKeys } from "@/lib/data";
 import { ENDPOINTS, apiUrl } from "@/lib/endpoint";
 
-/**
- * Returns the current user via React Query.
- * `user` is `null` when signed out, `undefined` while loading.
- */
 export function useUser() {
   const query = useQuery({
     queryKey: queryKeys.me,
@@ -24,7 +20,6 @@ export function useUser() {
   };
 }
 
-/** Logs out, then clears the cached user. */
 export function useLogout() {
   const queryClient = useQueryClient();
 
@@ -37,10 +32,6 @@ export function useLogout() {
   });
 }
 
-/**
- * Start an OAuth login by doing a full-page redirect to the backend.
- * This must be a real navigation (not fetch) so the provider can redirect back.
- */
 export function loginWith(provider: AuthProviderSlug = "github") {
   const path =
     provider === "google" ? ENDPOINTS.auth.google : ENDPOINTS.auth.github;

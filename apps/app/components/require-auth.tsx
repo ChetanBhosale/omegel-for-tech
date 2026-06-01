@@ -5,10 +5,6 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/use-auth";
 import { LoadingScreen } from "@/components/loading-screen";
 
-/**
- * Client-side route guard. Redirects to the landing page when the user is not
- * authenticated. Used to protect pages like /match.
- */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { isSignedIn, isLoading } = useUser();
   const router = useRouter();

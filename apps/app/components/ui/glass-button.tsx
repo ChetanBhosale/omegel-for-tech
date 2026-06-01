@@ -3,7 +3,6 @@ import { Slot } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 interface GlassButtonProps extends React.ComponentProps<"button"> {
-  /** Render as a child element (e.g. an <a> or Link) instead of a <button>. */
   asChild?: boolean;
   size?: "sm" | "md" | "lg";
 }
@@ -14,11 +13,6 @@ const sizes: Record<NonNullable<GlassButtonProps["size"]>, string> = {
   lg: "h-14 px-10 text-base",
 };
 
-/**
- * The shared liquid-glass button used across the app (nav CTA, hero CTA,
- * match controls). Wraps the `.liquid-glass` utility with consistent sizing,
- * hover scale, and disabled styles.
- */
 export function GlassButton({
   className,
   size = "md",
