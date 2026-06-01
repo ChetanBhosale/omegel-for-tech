@@ -8,33 +8,52 @@ import { signToken, verifyToken, AUTH_COOKIE } from './jwt';
 const STATE_COOKIE = 'oauth_state';
 const isProd = process.env.NODE_ENV === 'production';
 
-function cookieOptions(maxAgeMs: number) {
+/** Cookie options for the long-lived session token. */
+function sessionCookieOptions(maxAgeMs: number) {
   return {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? ('none' as const) : ('lax' as const),
     maxAge: maxAgeMs,
     path: '/',
-    // In production, scope the cookie to the parent domain so it's shared
-    // between app.omeglefortech.com (backend) and omeglefortech.com (frontend).
+    // Share across subdomains so the frontend can send it to the backend.
     ...(isProd ? { domain: '.omeglefortech.com' } : {}),
   };
 }
 
+/**
+ * Cookie options for the short-lived OAuth state. Uses 'lax' even in
+ * production because this cookie is read on a top-level navigation redirect
+ * from GitHub back to our callback. 'lax' cookies are sent on top-level
+ * navigations, while 'none' can be stripped by browsers on cross-site
+ * redirect chains.
+ */
+function stateCookieOptions(maxAgeMs: number) {
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax' as const,
+    maxAge: maxAgeMs,
+    path: '/',
+  };
+}
+
 export function startOAuth(req: Request, res: Response) {
-  const provider = getProvider(req.params.provider ?? '');
+  const providerSlug = String(req.params.provider ?? '');
+  const provider = getProvider(providerSlug);
   if (!provider) {
     return res.status(404).json({ error: 'Unsupported auth provider' });
   }
 
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie(STATE_COOKIE, state, cookieOptions(10 * 60 * 1000));
+  res.cookie(STATE_COOKIE, state, stateCookieOptions(10 * 60 * 1000));
 
   return res.redirect(provider.getAuthorizationUrl(state));
 }
 
 export async function handleOAuthCallback(req: Request, res: Response) {
-  const provider = getProvider(req.params.provider ?? '');
+  const providerSlug = String(req.params.provider ?? '');
+  const provider = getProvider(providerSlug);
   if (!provider) {
     return res.status(404).json({ error: 'Unsupported auth provider' });
   }
@@ -56,7 +75,7 @@ export async function handleOAuthCallback(req: Request, res: Response) {
     const user = await upsertUserFromProfile(profile);
 
     const token = signToken({ sub: user.id, email: user.email });
-    res.cookie(AUTH_COOKIE, token, cookieOptions(7 * 24 * 60 * 60 * 1000));
+    res.cookie(AUTH_COOKIE, token, sessionCookieOptions(7 * 24 * 60 * 60 * 1000));
 
     return res.redirect(`${Secrets.FRONTEND_URL}/match`);
   } catch (err) {
