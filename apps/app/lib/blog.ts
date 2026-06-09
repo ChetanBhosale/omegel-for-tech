@@ -17,6 +17,7 @@ export interface BlogPost {
   readingMinutes: number;
   tags: string[];
   sections: BlogSection[];
+  image?: string;
 }
 
 export const POSTS: BlogPost[] = [
@@ -118,6 +119,39 @@ export const POSTS: BlogPost[] = [
         paragraphs: [
           "Requiring GitHub sign in raises the floor. You are talking to people who have a real developer account tied to their identity, not a throwaway. It does not make the internet perfect, but it removes the easy anonymity that made the old model so messy.",
           "On top of that, calls run peer to peer over <a href=\"https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline hover:text-foreground\">WebRTC</a>, so your stream goes directly to the other person. We do not record calls.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "why-developers-are-moving-to-niche-video-chat-rooms",
+    title: "Why developers are moving to niche video chat rooms",
+    description:
+      "Generic social networks are too noisy and random video chats are too chaotic. Here is why developers are building and joining niche video spaces.",
+    date: "2026-03-01",
+    readingMinutes: 4,
+    tags: ["niche communities", "developers", "video chat"],
+    image: "/blog-niche-video-chat.png",
+    sections: [
+      {
+        heading: "The noise of the modern web",
+        paragraphs: [
+          "The modern internet is louder than ever. Major social platforms have optimized for engagement loops, outrage, and algorithmic feeds that prioritize controversy over conversation. For developers looking to have a genuine, technical conversation, finding a quiet corner has become incredibly difficult.",
+          "This noise is why we are seeing a massive shift toward niche, single-purpose spaces. Developers do not want to scroll through endless feeds; they want to talk to other builders who understand their stack, their struggles, and their goals.",
+        ],
+      },
+      {
+        heading: "Why generic video chat failed",
+        paragraphs: [
+          "In the early days of the web, platforms like Omegle offered a sense of wonder—the ability to meet anyone in the world instantly. But without any filtering or shared context, those spaces quickly devolved. The lack of accountability made them unsafe, and the sheer randomness meant you had to skip dozens of people just to find one normal conversation.",
+          "For a developer, spending an hour skipping through random streams is a waste of time. Niche video chat rooms solve this by introducing a single, powerful filter: a shared professional or creative interest.",
+        ],
+      },
+      {
+        heading: "The power of a single filter",
+        paragraphs: [
+          "By requiring a GitHub sign-in, a platform like OmegleForTech instantly filters the room to people who write code. This single constraint changes the entire dynamic of the space. You do not need to explain what a pull request is or why you are frustrated with a CSS bug. The baseline understanding is already there.",
+          "This shared context allows conversations to go deep, fast. You can pair-program, discuss system architecture, or share career advice with someone you met just thirty seconds ago.",
         ],
       },
     ],

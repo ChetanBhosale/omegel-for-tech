@@ -70,20 +70,33 @@ export default function BlogIndex() {
                 href={`/blog/${post.slug}`}
                 className="group block py-8"
               >
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <time dateTime={post.date}>{formatDate(post.date)}</time>
-                  <span>·</span>
-                  <span>{post.readingMinutes} min read</span>
+                <div className="flex flex-col gap-6 md:flex-row md:items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <time dateTime={post.date}>{formatDate(post.date)}</time>
+                      <span>·</span>
+                      <span>{post.readingMinutes} min read</span>
+                    </div>
+                    <h2 className="mt-2 text-2xl font-medium text-foreground transition-colors group-hover:text-muted-foreground">
+                      {post.title}
+                    </h2>
+                    <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                      {post.description}
+                    </p>
+                    <span className="mt-3 inline-block text-sm text-foreground underline-offset-4 group-hover:underline">
+                      Read more
+                    </span>
+                  </div>
+                  {post.image && (
+                    <div className="w-full shrink-0 overflow-hidden rounded-xl border border-border md:w-48">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className="aspect-[16/9] w-full object-cover transition-transform duration-300 group-hover:scale-105 md:aspect-square"
+                      />
+                    </div>
+                  )}
                 </div>
-                <h2 className="mt-2 text-2xl font-medium text-foreground transition-colors group-hover:text-muted-foreground">
-                  {post.title}
-                </h2>
-                <p className="mt-2 text-base leading-relaxed text-muted-foreground">
-                  {post.description}
-                </p>
-                <span className="mt-3 inline-block text-sm text-foreground underline-offset-4 group-hover:underline">
-                  Read more
-                </span>
               </Link>
             ))}
           </div>

@@ -34,6 +34,23 @@ export async function generateMetadata({
       description: post.description,
       url,
       publishedTime: post.date,
+      images: post.image
+        ? [
+            {
+              url: post.image,
+              width: 1200,
+              height: 630,
+              alt: post.title,
+            },
+          ]
+        : [
+            {
+              url: "/og.png",
+              width: 1200,
+              height: 630,
+              alt: post.title,
+            },
+          ],
     },
   };
 }
@@ -98,6 +115,16 @@ export default async function BlogPostPage({
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             {post.description}
           </p>
+
+          {post.image && (
+            <div className="mt-8 overflow-hidden rounded-2xl border border-border">
+              <img
+                src={post.image}
+                alt={post.title}
+                className="aspect-[16/9] w-full object-cover"
+              />
+            </div>
+          )}
 
           <div className="mt-12 flex flex-col gap-10">
             {post.sections.map((section, i) => (
