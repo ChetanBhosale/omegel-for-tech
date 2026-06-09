@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { StartButton } from "@/components/landing/start-button";
-import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { ArticleJsonLd, BreadcrumbJsonLd, BlogFaqJsonLd } from "@/components/seo/json-ld";
 import { POSTS, getPost } from "@/lib/blog";
 import { DISPLAY_FONT } from "@/lib/fonts";
 import { SITE, absoluteUrl } from "@/lib/seo";
@@ -63,6 +63,7 @@ export default async function BlogPostPage({
         slug={post.slug}
         date={post.date}
       />
+      <BlogFaqJsonLd sections={post.sections} />
       <BreadcrumbJsonLd
         items={[
           { name: "Home", url: SITE.domain },
@@ -110,9 +111,8 @@ export default async function BlogPostPage({
                   <p
                     key={j}
                     className="mt-4 text-base leading-relaxed text-muted-foreground"
-                  >
-                    {p}
-                  </p>
+                    dangerouslySetInnerHTML={{ __html: p }}
+                  />
                 ))}
               </section>
             ))}

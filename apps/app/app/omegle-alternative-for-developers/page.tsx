@@ -3,13 +3,13 @@ import { LandingNav } from "@/components/landing/landing-nav";
 import { StartButton } from "@/components/landing/start-button";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { FaqSection } from "@/components/landing/faq-section";
-import { AppJsonLd, FaqJsonLd, BreadcrumbJsonLd } from "@/components/seo/json-ld";
+import { AppJsonLd, FaqJsonLd, BreadcrumbJsonLd, DefinedTermJsonLd } from "@/components/seo/json-ld";
 import { DISPLAY_FONT } from "@/lib/fonts";
 import { SITE, absoluteUrl } from "@/lib/seo";
 
-const TITLE = "The Omegle alternative built for developers";
+const TITLE = "Omegle Alternative for Developers: Meet Real Builders";
 const DESCRIPTION =
-  "Looking for an Omegle alternative that is not a free for all? OmegleForTech pairs you only with other developers over 1-on-1 video. Sign in with GitHub and start in seconds.";
+  "An Omegle alternative for developers. OmegleForTech pairs you with real builders over 1-on-1 video. Sign in with GitHub and start matching in seconds.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -22,6 +22,14 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: absoluteUrl("omegle-alternative-for-developers"),
     type: "article",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: TITLE,
+      },
+    ],
   },
 };
 
@@ -29,7 +37,7 @@ const SECTIONS = [
   {
     heading: "Omegle is gone. The need it filled is not.",
     paragraphs: [
-      "When Omegle shut down in November 2023, it left millions of people without the one thing it did well: drop you into a conversation with someone new, instantly, with zero setup. People still search for that experience every single day.",
+      "When Omegle <a href=\"https://techcrunch.com/2023/11/08/omegle-shutdown-after-14-years/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline hover:text-foreground\">shut down in November 2023</a>, it left millions of people without the one thing it did well: drop you into a conversation with someone new, instantly, with zero setup. People still search for that experience every single day.",
       "The replacements that showed up mostly copied the old model exactly, including the part that made it unusable. Open the page, point your camera at nothing, and start skipping. If you are a developer, that is not worth your time.",
     ],
   },
@@ -44,7 +52,7 @@ const SECTIONS = [
     heading: "Same instant format, none of the chaos",
     paragraphs: [
       "Press start and you are connected to another developer in seconds. Want to move on? One click and you get someone new. It keeps the spontaneity that made the original fun.",
-      "The difference is the floor under it. Sign in keeps out the throwaway anonymity that made old random chat a moderation nightmare, and calls run peer to peer over WebRTC so your video goes straight to your match.",
+      "The difference is the floor under it. Sign in keeps out the throwaway anonymity that made old random chat a moderation nightmare, and calls run peer to peer over <a href=\"https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline hover:text-foreground\">WebRTC</a> so your video goes straight to your match.",
     ],
   },
   {
@@ -60,6 +68,14 @@ export default function OmegleAlternativePage() {
     <>
       <AppJsonLd />
       <FaqJsonLd />
+      <DefinedTermJsonLd
+        name="Omegle alternative for developers"
+        description="An Omegle alternative for developers. OmegleForTech pairs you with real builders over 1-on-1 video. Sign in with GitHub and start matching in seconds."
+      />
+      <DefinedTermJsonLd
+        name="OmegleForTech"
+        description="An Omegle alternative for developers. OmegleForTech pairs you with real builders over 1-on-1 video. Sign in with GitHub and start matching in seconds."
+      />
       <BreadcrumbJsonLd
         items={[
           { name: "Home", url: SITE.domain },
@@ -98,9 +114,8 @@ export default function OmegleAlternativePage() {
                   <p
                     key={i}
                     className="mt-4 text-base leading-relaxed text-muted-foreground"
-                  >
-                    {p}
-                  </p>
+                    dangerouslySetInnerHTML={{ __html: p }}
+                  />
                 ))}
               </section>
             ))}

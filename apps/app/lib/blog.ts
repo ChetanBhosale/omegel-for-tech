@@ -31,7 +31,7 @@ export const POSTS: BlogPost[] = [
     sections: [
       {
         paragraphs: [
-          "Omegle closed its doors in November 2023, and the gap it left never really got filled. Millions of people still type 'sites like Omegle' into Google every month. Most of what they find is the same thing rebuilt: open the page, point your camera at the void, and hope the next person is not someone you have to skip in half a second.",
+          "Omegle <a href=\"https://techcrunch.com/2023/11/08/omegle-shutdown-after-14-years/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline hover:text-foreground\">closed its doors in November 2023</a>, and the gap it left never really got filled. Millions of people still type 'sites like Omegle' into Google every month. Most of what they find is the same thing rebuilt: open the page, point your camera at the void, and hope the next person is not someone you have to skip in half a second.",
           "If you write code for a living, that format wastes your time. You do not want pure randomness. You want randomness with a floor under it, where the person on the other end is at least in the same world as you.",
         ],
       },
@@ -104,7 +104,7 @@ export const POSTS: BlogPost[] = [
     sections: [
       {
         paragraphs: [
-          "The honest answer is that old school random video chat was not safe, and everyone knew it. Anyone could join, there was no accountability, and moderation was always one step behind. Omegle eventually shut down over exactly these issues.",
+          "The honest answer is that old school random video chat was not safe, and everyone knew it. Anyone could join, there was no accountability, and moderation was always one step behind. Omegle <a href=\"https://techcrunch.com/2023/11/08/omegle-shutdown-after-14-years/\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline hover:text-foreground\">eventually shut down</a> over exactly these issues.",
         ],
       },
       {
@@ -117,7 +117,7 @@ export const POSTS: BlogPost[] = [
         heading: "What a sign in requirement changes",
         paragraphs: [
           "Requiring GitHub sign in raises the floor. You are talking to people who have a real developer account tied to their identity, not a throwaway. It does not make the internet perfect, but it removes the easy anonymity that made the old model so messy.",
-          "On top of that, calls run peer to peer over WebRTC, so your stream goes directly to the other person. We do not record calls.",
+          "On top of that, calls run peer to peer over <a href=\"https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"underline hover:text-foreground\">WebRTC</a>, so your stream goes directly to the other person. We do not record calls.",
         ],
       },
     ],

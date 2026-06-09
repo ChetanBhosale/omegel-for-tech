@@ -6,6 +6,7 @@ import "./globals.css";
 import { QueryProvider } from "@/context/query-provider";
 import { cn } from "@/lib/utils";
 import { SITE, KEYWORDS } from "@/lib/seo";
+import { MarkdownAlternateLink } from "@/components/seo/markdown-alternate-link";
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -34,6 +35,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: SITE.domain,
   },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
   openGraph: {
     type: "website",
     siteName: SITE.name,
@@ -41,6 +46,14 @@ export const metadata: Metadata = {
     description: SITE.description,
     url: SITE.domain,
     locale: SITE.locale,
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "OmegleForTech — Random video chat for developers",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -68,6 +81,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/icon.svg" />
+      </head>
       <body
         className={cn(
           "antialiased",

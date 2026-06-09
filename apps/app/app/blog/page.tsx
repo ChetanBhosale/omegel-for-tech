@@ -7,18 +7,27 @@ import { POSTS } from "@/lib/blog";
 import { DISPLAY_FONT } from "@/lib/fonts";
 import { SITE, absoluteUrl } from "@/lib/seo";
 
-const TITLE = "Blog";
+const TITLE = "Developer Video Chat Blog: Tips, Stories & Updates";
 const DESCRIPTION =
-  "Notes on random video chat, meeting developers online, and building OmegleForTech.";
+  "Read our latest articles on random video chat safety, developer networking tips, and behind-the-scenes stories of building the ultimate Omegle alternative.";
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: absoluteUrl("blog") },
   openGraph: {
+    type: "website",
     title: `${TITLE} — ${SITE.name}`,
     description: DESCRIPTION,
     url: absoluteUrl("blog"),
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: TITLE,
+      },
+    ],
   },
 };
 
