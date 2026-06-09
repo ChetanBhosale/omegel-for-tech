@@ -14,7 +14,7 @@ export function Hero() {
       </h1>
 
       <p className="animate-fade-rise-delay mt-8 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-        No more creepy uncles ruining every random video call.
+        <strong>OmegleForTech</strong> is a random video chat for developers. Meet developers at random over 1-on-1 video, sign in with GitHub, get matched in seconds, and talk shop with real builders. No bots, no creeps, no signup forms.
       </p>
 
       <StartButton

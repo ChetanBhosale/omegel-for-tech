@@ -1,0 +1,24 @@
+# OmegleForTech
+
+> Random video chat for developers. Meet developers at random over 1-on-1 video. Sign in with GitHub, get matched in seconds, and talk shop with real builders. No bots, no creeps, no signup forms.
+
+## Key Pages
+
+- [Home](https://omeglefortech.com/) - The main landing page where developers can sign in with GitHub and start matching instantly.
+- [Omegle Alternative for Developers](https://omeglefortech.com/omegle-alternative-for-developers) - A dedicated page explaining why OmegleForTech is the best Omegle alternative for developers.
+- [Blog](https://omeglefortech.com/blog) - Articles, guides, and insights about developer networking, safety, and online video chat.
+
+## Blog Posts
+
+- [The best Omegle alternative for developers in 2026](https://omeglefortech.com/blog/best-omegle-alternatives-for-developers) - Why a developer-only room changes the whole random video chat experience.
+- [How to actually network with developers online](https://omeglefortech.com/blog/how-to-network-with-developers-online) - A faster way to meet other developers and have real conversations without the noise.
+- [Is random video chat safe, and how verification changes it](https://omeglefortech.com/blog/is-random-video-chat-safe) - What made old-school random video chat risky and how GitHub verification solves it.
+
+## Frequently Asked Questions
+
+- **Is OmegleForTech free to use?** Yes. Sign in with your GitHub account and start matching right away. There is no paywall, no credit card, and no trial timer.
+- **Why do I need to sign in with GitHub?** GitHub sign in is what keeps the room full of real developers instead of random strangers and bots. It is a one click login, and we never see your password or post anything to your account.
+- **How is this different from Omegle?** Omegle paired you with anyone on the internet. OmegleForTech pairs you only with other signed in developers, so every conversation starts with something in common. Same instant random format, built for people who write code.
+- **Do I need to install anything?** No. It runs in your browser using WebRTC. Allow your camera and microphone once and you are connected. Nothing to download.
+- **Is my video private?** Calls are peer to peer over WebRTC. Your video and audio stream directly between you and the person you match with. We do not record or store your calls.
+- **What can I do on a call?** Trade ideas, pair on a bug, review an approach, prep for interviews, talk about the stack you are building, or just meet someone new in the field. You can skip to the next person anytime.

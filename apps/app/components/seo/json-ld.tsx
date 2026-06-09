@@ -79,6 +79,37 @@ export function ArticleJsonLd({
   return <JsonLd data={data} />;
 }
 
+/** Dynamic FAQPage schema for blog posts with Q&A sections. */
+export function BlogFaqJsonLd({
+  sections,
+}: {
+  sections: { heading?: string; paragraphs: string[] }[];
+}) {
+  const qaSections = sections.filter(
+    (s) =>
+      s.heading &&
+      (s.heading.endsWith("?") ||
+        /^(why|how|what|is|can|where|who|are|do|does|should)\b/i.test(s.heading))
+  );
+
+  if (qaSections.length === 0) return null;
+
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: qaSections.map((s) => ({
+      "@type": "Question",
+      name: s.heading,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: s.paragraphs.join(" "),
+      },
+    })),
+  };
+
+  return <JsonLd data={data} />;
+}
+
 /** BreadcrumbList schema. */
 export function BreadcrumbJsonLd({
   items,
@@ -94,6 +125,23 @@ export function BreadcrumbJsonLd({
       name: item.name,
       item: item.url,
     })),
+  };
+  return <JsonLd data={data} />;
+}
+
+/** DefinedTerm schema. */
+export function DefinedTermJsonLd({
+  name,
+  description,
+}: {
+  name: string;
+  description: string;
+}) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    name,
+    description,
   };
   return <JsonLd data={data} />;
 }
