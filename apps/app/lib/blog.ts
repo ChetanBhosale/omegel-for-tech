@@ -96,9 +96,9 @@ export const POSTS: BlogPost[] = [
   },
   {
     slug: "is-random-video-chat-safe",
-    title: "Is random video chat safe, and how verification changes it",
+    title: "Is random video chat safe?",
     description:
-      "Random video chat got a bad name for good reasons. Here is what made it risky and how a verified room is different.",
+      "Random video chat got a bad name for good reasons. Here is what made it risky and how a verified room changes the safety equation.",
     date: "2026-02-24",
     readingMinutes: 4,
     tags: ["safety", "video chat", "moderation"],

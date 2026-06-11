@@ -7,9 +7,9 @@ import { AppJsonLd, FaqJsonLd, BreadcrumbJsonLd, DefinedTermJsonLd } from "@/com
 import { DISPLAY_FONT } from "@/lib/fonts";
 import { SITE, absoluteUrl } from "@/lib/seo";
 
-const TITLE = "Omegle Alternative for Developers: Meet Real Builders";
+const TITLE = "Omegle Alternative: Meet Real Builders";
 const DESCRIPTION =
-  "An Omegle alternative for developers. OmegleForTech pairs you with real builders over 1-on-1 video. Sign in with GitHub and start matching in seconds.";
+  "An Omegle alternative for developers. OmegleForTech pairs you with real builders over 1-on-1 video. Sign in with GitHub to connect now.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -86,44 +86,48 @@ export default function OmegleAlternativePage() {
         ]}
       />
 
-      <main className="relative min-h-svh bg-background">
-        <LandingNav />
+      <div className="relative min-h-svh bg-background">
+        <header>
+          <LandingNav />
+        </header>
 
-        <article className="relative z-10 mx-auto w-full max-w-3xl px-6 py-16">
-          <h1
-            className="text-4xl leading-tight text-foreground sm:text-6xl"
-            style={DISPLAY_FONT}
-          >
-            {TITLE}
-          </h1>
-          <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
-            {DESCRIPTION}
-          </p>
+        <main>
+          <article className="relative z-10 mx-auto w-full max-w-3xl px-6 py-16">
+            <h1
+              className="text-4xl leading-tight text-foreground sm:text-6xl"
+              style={DISPLAY_FONT}
+            >
+              {TITLE}
+            </h1>
+            <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
+              {DESCRIPTION}
+            </p>
 
-          <div className="mt-10">
-            <StartButton size="lg" iconSize="size-5" className="px-12 text-lg" />
-          </div>
+            <div className="mt-10">
+              <StartButton size="lg" iconSize="size-5" className="px-12 text-lg" />
+            </div>
 
-          <div className="mt-16 flex flex-col gap-12">
-            {SECTIONS.map((s) => (
-              <section key={s.heading}>
-                <h2 className="text-2xl font-medium text-foreground">
-                  {s.heading}
-                </h2>
-                {s.paragraphs.map((p, i) => (
-                  <p
-                    key={i}
-                    className="mt-4 text-base leading-relaxed text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: p }}
-                  />
-                ))}
-              </section>
-            ))}
-          </div>
-        </article>
+            <div className="mt-16 flex flex-col gap-12">
+              {SECTIONS.map((s) => (
+                <section key={s.heading}>
+                  <h2 className="text-2xl font-medium text-foreground">
+                    {s.heading}
+                  </h2>
+                  {s.paragraphs.map((p, i) => (
+                    <p
+                      key={i}
+                      className="mt-4 text-base leading-relaxed text-muted-foreground"
+                      dangerouslySetInnerHTML={{ __html: p }}
+                    />
+                  ))}
+                </section>
+              ))}
+            </div>
+          </article>
 
-        <FaqSection />
-      </main>
+          <FaqSection />
+        </main>
+      </div>
 
       <SiteFooter />
     </>

@@ -21,9 +21,13 @@ export default function Page() {
 
       <div className="relative min-h-svh overflow-hidden bg-background">
         <BackgroundVideo src={VIDEO_SRC} />
-        <LandingNav />
-        <Hero />
-        <FaqSection />
+        <header>
+          <LandingNav />
+        </header>
+        <main>
+          <Hero />
+          <FaqSection />
+        </main>
         <SiteFooter />
       </div>
     </>
