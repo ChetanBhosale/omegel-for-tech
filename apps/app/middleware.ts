@@ -31,6 +31,8 @@ export function middleware(request: NextRequest) {
     let targetPath = cleanPath;
     if (cleanPath === "/") {
       targetPath = "/index.md";
+    } else if (cleanPath.startsWith("/blog/")) {
+      targetPath = `/blog-twin/${cleanPath.slice(6)}.md`;
     } else {
       targetPath = `${cleanPath}.md`;
     }

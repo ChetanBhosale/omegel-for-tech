@@ -129,6 +129,49 @@ export function BreadcrumbJsonLd({
   return <JsonLd data={data} />;
 }
 
+/** FAQPage schema for the blog index page. */
+export function BlogIndexFaqJsonLd() {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "What is the best Omegle alternative for developers in 2026?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Omegle is gone and most replacements are still a coin flip with strangers. OmegleForTech is the best alternative because it requires a GitHub sign-in, ensuring you only match with other verified developers.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How do you network with developers online?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Instead of slow social media feeds, live video matching lets you connect face-to-face with other developers instantly. Leading with what you are working on and treating the skip button as a feature makes networking fast and effective.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is random video chat safe?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Traditional anonymous video chat has safety risks, but requiring a GitHub sign-in raises the floor by removing total anonymity. Additionally, calls run peer-to-peer over WebRTC so streams are not recorded.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Why are developers moving to niche video chat rooms?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "The modern web is noisy and generic platforms lack shared context. Niche video chat rooms introduce a single filter (like GitHub sign-in) so developers can have deep, technical conversations immediately.",
+        },
+      },
+    ],
+  };
+  return <JsonLd data={data} />;
+}
+
 /** DefinedTerm schema. */
 export function DefinedTermJsonLd({
   name,

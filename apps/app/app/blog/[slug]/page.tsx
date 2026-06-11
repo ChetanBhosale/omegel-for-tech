@@ -89,80 +89,84 @@ export default async function BlogPostPage({
         ]}
       />
 
-      <main className="relative min-h-svh bg-background">
-        <LandingNav />
+      <div className="relative min-h-svh bg-background">
+        <header>
+          <LandingNav />
+        </header>
 
-        <article className="relative z-10 mx-auto w-full max-w-2xl px-6 py-16">
-          <Link
-            href="/blog"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            ← Back to blog
-          </Link>
+        <main>
+          <article className="relative z-10 mx-auto w-full max-w-2xl px-6 py-16">
+            <Link
+              href="/blog"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              ← Back to blog
+            </Link>
 
-          <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <time dateTime={post.date}>{formatDate(post.date)}</time>
-            <span>·</span>
-            <span>{post.readingMinutes} min read</span>
-          </div>
-
-          <h1
-            className="mt-3 text-4xl leading-tight text-foreground sm:text-5xl"
-            style={DISPLAY_FONT}
-          >
-            {post.title}
-          </h1>
-          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-            {post.description}
-          </p>
-
-          {post.image && (
-            <div className="mt-8 overflow-hidden rounded-2xl border border-border">
-              <img
-                src={post.image}
-                alt={post.title}
-                className="aspect-[16/9] w-full object-cover"
-              />
+            <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
+              <time dateTime={post.date}>{formatDate(post.date)}</time>
+              <span>·</span>
+              <span>{post.readingMinutes} min read</span>
             </div>
-          )}
 
-          <div className="mt-12 flex flex-col gap-10">
-            {post.sections.map((section, i) => (
-              <section key={i}>
-                {section.heading && (
-                  <h2 className="text-2xl font-medium text-foreground">
-                    {section.heading}
-                  </h2>
-                )}
-                {section.paragraphs.map((p, j) => (
-                  <p
-                    key={j}
-                    className="mt-4 text-base leading-relaxed text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: p }}
-                  />
-                ))}
-              </section>
-            ))}
-          </div>
-
-          {/* Inline CTA */}
-          <div className="mt-16 rounded-2xl border border-border bg-card/40 p-8 text-center backdrop-blur-sm">
-            <h2
-              className="text-2xl text-foreground"
+            <h1
+              className="mt-3 text-4xl leading-tight text-foreground sm:text-5xl"
               style={DISPLAY_FONT}
             >
-              Try it for yourself
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Sign in with GitHub and get matched with another developer in
-              seconds.
+              {post.title}
+            </h1>
+            <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+              {post.description}
             </p>
-            <div className="mt-6 flex justify-center">
-              <StartButton size="lg" iconSize="size-5" className="px-12" />
+
+            {post.image && (
+              <div className="mt-8 overflow-hidden rounded-2xl border border-border">
+                <img
+                  src={post.image}
+                  alt={post.title}
+                  className="aspect-[16/9] w-full object-cover"
+                />
+              </div>
+            )}
+
+            <div className="mt-12 flex flex-col gap-10">
+              {post.sections.map((section, i) => (
+                <section key={i}>
+                  {section.heading && (
+                    <h2 className="text-2xl font-medium text-foreground">
+                      {section.heading}
+                    </h2>
+                  )}
+                  {section.paragraphs.map((p, j) => (
+                    <p
+                      key={j}
+                      className="mt-4 text-base leading-relaxed text-muted-foreground"
+                      dangerouslySetInnerHTML={{ __html: p }}
+                    />
+                  ))}
+                </section>
+              ))}
             </div>
-          </div>
-        </article>
-      </main>
+
+            {/* Inline CTA */}
+            <div className="mt-16 rounded-2xl border border-border bg-card/40 p-8 text-center backdrop-blur-sm">
+              <h2
+                className="text-2xl text-foreground"
+                style={DISPLAY_FONT}
+              >
+                Try it for yourself
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Sign in with GitHub and get matched with another developer in
+                seconds.
+              </p>
+              <div className="mt-6 flex justify-center">
+                <StartButton size="lg" iconSize="size-5" className="px-12" />
+              </div>
+            </div>
+          </article>
+        </main>
+      </div>
 
       <SiteFooter />
     </>

@@ -33,7 +33,10 @@ export async function GET(
   let markdown = "";
   let title = "";
 
-  const path = segments.join("/");
+  let path = segments.join("/");
+  if (path.startsWith("blog-twin/")) {
+    path = "blog/" + path.slice(10);
+  }
 
   if (path === "index" || path === "home" || path === "") {
     title = `${SITE.name} — ${SITE.tagline}`;
@@ -145,6 +148,8 @@ This is the video chat interface. Sign in with GitHub to start matching with oth
       "X-Robots-Tag": "noindex",
       "Vary": "Accept",
       "X-Markdown-Tokens": String(tokenCount),
+      "X-Content-Type-Options": "nosniff",
+      "X-AEO-Version": "1.0",
     },
   });
 }
